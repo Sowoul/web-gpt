@@ -3,16 +3,230 @@
   <head>
     <meta charset="UTF-8" />
     <title>Chat App</title>
+    <style>
+      body {
+        background-color: #33334f;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+
+      .chatbox {
+        display: flex;
+        flex-direction: column;
+        align-items: left;
+        justify-content: flex-start;
+        width: 95%;
+        height: 80%;
+        padding: 10px;
+        padding-bottom: 3px;
+        border: 1px solid #202c33;
+        overflow-y: auto;
+        overflow-x: auto;
+        background-image: url("https://i.postimg.cc/rwwkS2q7/bg.jpg");
+        background-size: cover;
+      }
+      .chatbox::-webkit-scrollbar {
+        width: 16px;
+      }
+
+      .chatbox::-webkit-scrollbar-track {
+        background-color: rgb(255, 255, 255, 0);
+        border-radius: 100px;
+      }
+
+      .chatbox::-webkit-scrollbar-thumb {
+        background-image: linear-gradient(to bottom, #727de7, #9b71e8);
+        border-radius: 10px;
+      }
+      .chatbox::-webkit-scrollbar-thumb:hover {
+        background-color: #2da86a;
+        border-radius: 100px;
+      }
+
+      .message {
+        transition: transform 0.2s, opacity 0.2s 0.1s;
+
+        border-radius: 20px 20px 0 20px;
+        padding: 15px;
+        margin-bottom: 5px;
+        color: #ffffff;
+        word-wrap: break-word;
+        max-width: 40%;
+        overflow-wrap: anywhere;
+        transform: scale(1);
+        will-change: transform;
+        transform-origin: right;
+        opacity: 1;
+      }
+
+      .message.shrink {
+        transform: scale(0.9) !important;
+        opacity: 0.7;
+        transition: transform 0.2s, opacity 0.2s;
+      }
+
+      .user-message {
+        background-image: linear-gradient(to right, #727de7, #9b71e8);
+        align-self: flex-end;
+      }
+
+      .user-message:hover {
+        background-image: linear-gradient(to right, #727de7, #9b71e8);
+
+        transform: scale(1.2);
+        border-radius: 20px !important;
+        transform-origin: right;
+        opacity: 1 !important;
+        z-index: 1;
+      }
+
+      .other-message {
+        transform-origin: left;
+        border-radius: 0 20px 20px 20px;
+        align-self: flex-start;
+        background-color: #46466a !important;
+      }
+
+      .other-message:hover {
+        background-color: #505077 !important;
+        border-radius: 20px !important;
+        transform: scale(1.2) !important;
+        transform-origin: left;
+        opacity: 1 !important;
+        z-index: 1;
+      }
+
+      #message {
+        display: flex;
+        flex-direction: row;
+        padding-top: 22px;
+      }
+
+      #message input {
+        flex-grow: 1;
+        margin-right: 10px;
+      }
+
+      #message button {
+        flex-grow: 0;
+      }
+      .message.push {
+        transition: transform 0.2s !important;
+      }
+      .message.push.up {
+        transform: translateY(-10px) !important;
+      }
+      .message.push.down {
+        transform: translateY(10px) !important;
+      }
+
+      .input {
+        width: 1200px;
+        height: 28px;
+        padding: 8px;
+        padding-left: 25px;
+        margin-top: 2vh;
+        background-color: #46466a;
+        color: #ffffff;
+        border: 2px solid #313149;
+        border-radius: 100px;
+        outline: none;
+        font-size: 16px;
+        transition: transform 0.2s;
+      }
+
+      .input:focus {
+        background: linear-gradient(#363854, #363854) padding-box,
+          linear-gradient(to right, #727de7, #9b71e8) border-box;
+        border-radius: 100px;
+        border: 2px solid transparent;
+      }
+      .input:hover {
+        transform: scale(1.005);
+      }
+      .button {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        padding: 12px;
+        padding-left: 16px;
+        padding-right: 16px;
+        background: linear-gradient(#46466a, #46466a) padding-box,
+          linear-gradient(to right, #727de7, #9b71e8) border-box;
+        border-radius: 2000px;
+        border: 2px solid transparent;
+
+        cursor: pointer;
+        border-radius: 90px;
+        transition: transform 0.2s;
+      }
+
+      .button:active {
+        background-color: #00d5b2;
+        color: #005c4b;
+      }
+      .button:hover {
+        background: linear-gradient(#363854, #363854) padding-box,
+          linear-gradient(to right, #727de7, #9b71e8) border-box;
+        border-radius: 100px;
+        border: 2px solid transparent;
+
+        transform: scale(1.17);
+      }
+    </style>
   </head>
   <body>
-    <div id="display-area">
-      {% for message in chat_history %}
-      <p>{{ message }}</p>
-      {% endfor %}
-    </div>
-    <form action="/" method="post">
-      <input type="text" name="user_input" />
-      <button type="submit">Send</button>
+    <div id="display-area" class="chatbox"></div>
+    <form id="user-input-form">
+      <input
+        type="text"
+        name="user_input"
+        class="input"
+        placeholder="Type your message..."
+      />
+      <button type="submit" class="button"><b> > </b></button>
     </form>
+    <script>
+      const chatbox = document.getElementById("display-area");
+      const userInputForm = document.getElementById("user-input-form");
+      const userInput = document.querySelector("input[name='user_input']");
+
+      userInputForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const userMessage = userInput.value.trim();
+        if (userMessage !== "") {
+          renderMessage(userMessage, true);
+          userInput.value = "";
+
+          var formData = new FormData();
+          formData.append("user_input", userMessage);
+
+          fetch("/", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              const aiResponse = data.message;
+              renderMessage(aiResponse, false);
+            })
+            .catch((error) => console.error("Error:", error));
+        }
+      });
+
+      function renderMessage(message, isUserMessage) {
+        const messageElement = document.createElement("p");
+        messageElement.textContent = message;
+        messageElement.className = isUserMessage
+          ? "user-message message"
+          : "other-message message";
+        chatbox.appendChild(messageElement);
+        chatbox.scrollTop = chatbox.scrollHeight;
+      }
+    </script>
   </body>
 </html>
