@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import torch
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 import torch
@@ -62,8 +62,10 @@ def fun():
         context = generate_ctx(urs)
         ai_response = gen(user_input, context=context)
         chat_history.append('AI: ' + ai_response)
+        return jsonify({'message': ai_response})
     return render_template('index.html', chat_history=chat_history)
 
 
 if __name__ == "__main__":
     app.run(port=8080)
+
