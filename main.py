@@ -1,57 +1,58 @@
-from transformers import GPTNeoForCausalLM, GPT2Tokenizer
-from flask import Flask, render_template, request
-from transformers import GPT2Tokenizer, GPTNeoForQuestionAnswering, GenerationConfig
+# Importing the libraries and loading the models
+from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 import torch
-
-chat_history = []
-
-
-def gen(tkn_inp: str):
-    tkn_inp = tkn_inp.replace('%', ' ')
-    print(tkn_inp)
-
-    def encode_input(input_str):
-        return tokenizer(input_str, return_tensors="pt")
-
-    def get_generation_config(eos_token_id):
-        generation_config = GenerationConfig(
-            max_length=512,
-            pad_token_id=eos_token_id,
-            do_sample=True
-        )
-        return generation_config
-
-    tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
-    model = GPTNeoForCausalLM.from_pretrained("EleutherAI/gpt-neo-1.3B")
-    model.eval()
-
-    def generate_text(inputs):
-
-        generation_config = get_generation_config(model.config.eos_token_id)
-
-        with torch.no_grad():
-            prediction = model.generate(
-                **inputs, **generation_config.to_dict())
-
-        return tokenizer.decode(prediction[0], skip_special_tokens=True)
-
-    inputs = encode_input(tkn_inp)
-    output = generate_text(inputs)
-    return output
+import requests
+from bs4 import BeautifulSoup
+from googlesearch import search
 
 
-app = Flask(__name__)
+tokenizer = AutoTokenizer.from_pretrained(
+    "bert-large-uncased-whole-word-masking-finetuned-squad")
+model = AutoModelForQuestionAnswering.from_pretrained(
+    "bert-large-uncased-whole-word-masking-finetuned-squad")
 
 
-@app.route('/', methods=['GET', 'POST'])
-def fun():
-    if request.method == 'POST':
-        user_input = request.form['user_input']
-        chat_history.append('User: ' + user_input)
-        ai_response = gen(user_input)
-        chat_history.append('AI: ' + ai_response)
-    return render_template('index.html', chat_history=chat_history)
+def get_answer(question, context):
+    # Encoding and running the model
+    inputs = tokenizer.encode_plus(question, context, return_tensors='pt')
+    answer_start_scores, answer_end_scores = model(**inputs, return_dict=False)
+
+    # Finding the tokens with the highest `start` and `end` scores
+    answer_start = torch.argmax(answer_start_scores)
+    answer_end = torch.argmax(answer_end_scores) + 1
+
+    # Convert tokens to string
+    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(
+        inputs["input_ids"][0][answer_start:answer_end]))
+
+    return answer
 
 
-if __name__ == "__main__":
-    app.run(port=8080)
+def get_urls(query, num_results=5):
+    # Limit to the first num_results (default is 5)
+    urls = [url for url in search(query, num_results == 5)]
+    return urls
+
+
+def generate_ctx(urls):
+    ctx = ''
+    for url in urls:
+
+        r = requests.get(url)
+
+        soup = BeautifulSoup(r.text, 'html.parser')
+
+        p_tags = soup.find_all('p')
+
+        for tag in p_tags:
+            ctx = ctx+tag.get_text()
+        return ctx[0:511]
+
+
+question = "What is machine learning"
+urs = get_urls(question)
+context = generate_ctx(urs)
+
+# Get answer
+answer = get_answer(question, context)
+print(answer)
