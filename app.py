@@ -15,18 +15,32 @@ chat_history = []
 
 
 def gen(question, context):
-    inputs = tokenizer.encode_plus(question, context, return_tensors='pt')
-    answer_start_scores, answer_end_scores = model(**inputs, return_dict=False)
+    # Split the context into chunks of size 510 (leaving 2 tokens for [CLS] and [SEP])
+    context_parts = [context[i:i+510] for i in range(0, len(context), 510)]
 
-    # Finding the tokens with the highest `start` and `end` scores
-    answer_start = torch.argmax(answer_start_scores)
-    answer_end = torch.argmax(answer_end_scores) + 1
+    # Initialize lists to store the scores and answers
+    answer_start_scores = []
+    answer_end_scores = []
+    answers = []
 
-    # Convert tokens to string
-    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(
-        inputs["input_ids"][0][answer_start:answer_end]))
+    # Process each chunk separately
+    for context_part in context_parts:
+        inputs = tokenizer.encode_plus(
+            question, context_part, return_tensors='pt')
+        start_scores, end_scores = model(**inputs, return_dict=False)
 
-    return answer
+        answer_start = torch.argmax(start_scores)
+        answer_end = torch.argmax(end_scores) + 1
+
+        answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(
+            inputs["input_ids"][0][answer_start:answer_end]))
+
+        answer_start_scores.append(start_scores[0][answer_start].item())
+        answer_end_scores.append(end_scores[0][answer_end-1].item())
+        answers.append(answer)
+
+    # Return the answer with the highest start score
+    return answers[answer_start_scores.index(max(answer_start_scores))]
 
 
 def get_urls(query, num_results=5):
@@ -47,7 +61,7 @@ def generate_ctx(urls):
 
         for tag in p_tags:
             ctx = ctx+tag.get_text()
-        return ctx[0:511]
+        return ctx
 
 
 app = Flask(__name__)
